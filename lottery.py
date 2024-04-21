@@ -1,81 +1,64 @@
 import random as rd
 import time
 import math
-import os
+import sys
 
-import ascii_strings as astr
+from visual_helper import *
 
+MAX_OPTION_LENGTH = 25
 
-def assembleFrame(animation_frame: str, winner_line: str) -> str:
-    s = ""
-    s = s + astr.HEADER + "\n"
-    s = s + winner_line + "\n"
-    s = s + astr.PADDING + "\n"
-    s = s + astr.ANIMATION[animation_frame] + "\n"
-    s = s + astr.FOOTER
-    return s
-
-
-# constants
-INPUT_FILE_PATH = "input.txt"
-LINE_LENGTH = 47
-LINE_COUNT = assembleFrame(0, "").count("\n") + 1
-
-
-def cleanScreen(lcount):
-    print("\033[" + str(lcount) + "A", end="")
-    print("\033[K", end="")
+def isBadString(s: str):
+    bad_chars = set("~/[];|&$<>\\\"'`")
+    return any(char in bad_chars for char in s)
 
 
 def performRoll(sample_space):
-    # init random generator
-    rd.seed()
-
-    # choose a random item
-    selected_sample = sample_space[rd.randrange(0, len(sample_space))]
-
-    # Play a sound in the background
-    # TODO what if the soundfile does not exist? 
-    # TODO custom soundfile
-    # os.system('afplay sound.wav &')
-
+    # Play animation: each iteration one frame.
     for i in range(0, 60):
-        s = "\033[33m" + sample_space[i % len(sample_space)] + "\033[0m"
+        running_winner = sample_space[i % len(sample_space)]
+        winner_line = buildWinnerLine(running_winner)
+        frame, line_count = assembleFrame(i % 2, winner_line)
+        print(frame)
 
-        spacing = (LINE_LENGTH - 4 - len(s) + 9) / 2
-        if spacing != int(spacing):
-            s = s + " "
-        spacing = int(spacing)
-        winner_line = "==" + " " * spacing + s + " " * spacing + "=="
-        print(assembleFrame(i % 2, winner_line))
-
-        # clear previous output
-        cleanScreen(LINE_COUNT)
+        # slow down as closer we get to the true winner
         time.sleep(math.exp(0.1 * i) * 0.001)
+        cleanScreen(line_count)
 
-    s = "٩( ᐛ )و  \033[33m" + selected_sample + "\033[0m  ٩( ᐛ )و"
-    spacing = (LINE_LENGTH - 4 - len(s) + 9) / 2
-    if spacing != int(spacing):
-        s = s + " "
-    spacing = int(spacing)
-    winner_line = "==" + " " * spacing + s + " " * spacing + "=="
-    print(assembleFrame(2, winner_line))
+    # It's time to reveal the true winner.
+    rd.seed()
+    winner = sample_space[rd.randrange(0, len(sample_space))]
+    winner = "٩( ᐛ )و  " + winner + "  ٩( ᐛ )و"
+    winner_line = buildWinnerLine(winner)
+    frame, line_count = assembleFrame(astr.WINNER_ANIMATION_FRAME, winner_line)
+    print(frame)
 
 
-# read options to randomly choose from
-# TODO check if file was opened correctly
-# TODO custom input file
-f = open(INPUT_FILE_PATH, "r")
-sample_space = f.readlines()
-sample_space = [s.strip() for s in sample_space]  # remove \n
-f.close
+def main():
+    # Runtime arguments.
+    if len(sys.argv) < 2:
+        print("Error: Please provide a file. Usage: lottery.py <filename>")
+        sys.exit(1)
+    file_path = sys.argv[1]
 
-# name roll
-performRoll(sample_space)
+    # Read options to choose from.
+    with open(file_path, "r") as f:
+        sample_space = f.readlines()
+        sample_space = [s.strip() for s in sample_space]  # remove \n
+        f.close
 
-# number roll
-numbers = ["0", "1", "1", "2", "1", "2", "2", "π", "0",
-           "max(x2, 1)", "-1", "x0 + 1", "ghost mode", "/2", "ngo", "the MArXisTs", "barter"]
-input() # wait until user input
-cleanScreen(LINE_COUNT + 1)
-performRoll(numbers)
+        # Is any of the options too long?
+        if any(len(s) > 25 for s in sample_space):
+            print("Error: The maximum length for an option is " +
+                  str(MAX_OPTION_LENGTH) + ".")
+            sys.exit(1)
+
+        # any bad strings?
+        if any(isBadString(s) for s in sample_space):
+          print("Error: Do not use special characters for your options.")
+          sys.exit(1)
+
+    performRoll(sample_space)
+
+
+if __name__ == "__main__":
+    main()
